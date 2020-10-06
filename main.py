@@ -89,6 +89,12 @@ def main():
 
     target = virality_df['Virality']
 
+    # drop cols with poor total correlation
+    virality_df = virality_df.drop('contentId', 1)
+    virality_df = virality_df.drop('authorPersonalId', 1)
+    virality_df = virality_df.drop('authorSessionId', 1)
+
+    # need one hot encode before correlation
 
 if __name__ == '__main__':
     main()
