@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from time import clock
+import seaborn as sb
 
 
 def initial_data_cleaning():
@@ -48,6 +48,12 @@ def initial_data_cleaning():
     virality_df.hist(figsize=(12, 10))
     plt.savefig('virality_hist.png')
 
+    # Correlation heat mapping
+    viral_corr = virality_df.corr()
+    fig = plt.figure(figsize=(20, 20))
+    sb.heatmap(viral_corr, vmax=.8, square=True)
+    plt.savefig('virality_corr.png')
+
     # Export for future loading
     virality_df.to_csv('virality.csv', index=False)
 
@@ -80,6 +86,8 @@ def main():
     #initial_data_cleaning()
 
     virality_df = pd.read_csv('virality.csv')
+
+    target = virality_df['Virality']
 
 
 if __name__ == '__main__':
