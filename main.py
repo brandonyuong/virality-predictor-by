@@ -36,8 +36,6 @@ def initial_data_cleaning():
 
     cols = get_cols_w_no_nans(virality_df)
     print(cols)
-    virality_df.hist(figsize=(12, 10))
-    plt.savefig('virality_hist.png')
 
     virality_df = virality_df[cols]
 
@@ -46,8 +44,12 @@ def initial_data_cleaning():
     virality_df = virality_df.drop('text', 1)
     print(virality_df)
 
+    # Histogram of features
+    virality_df.hist(figsize=(12, 10))
+    plt.savefig('virality_hist.png')
+
     # Export for future loading
-    virality_df.to_csv('virality.csv')
+    virality_df.to_csv('virality.csv', index=False)
 
 
 def get_cols_w_no_nans(df, col_type='all'):
@@ -75,9 +77,9 @@ def get_cols_w_no_nans(df, col_type='all'):
 
 def main():
     # Data Cleaning: run the first time
-    initial_data_cleaning()
+    #initial_data_cleaning()
 
-    #virality_df = pd.read_csv('virality.csv')
+    virality_df = pd.read_csv('virality.csv')
 
 
 if __name__ == '__main__':
