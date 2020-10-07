@@ -1,9 +1,20 @@
-import matplotlib.pyplot as plt
+import random
+from time import clock
+from collections import defaultdict
+
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 import seaborn as sb
 import tensorflow as tf
-import scikit-learn as sk
+
+from sklearn.neural_network import MLPRegressor
+from sklearn.ensemble import RandomForestRegressor
+
+from sklearn.model_selection import learning_curve
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import mean_absolute_error
+from sklearn.model_selection import train_test_split
 
 
 def initial_data_cleaning():
@@ -122,33 +133,77 @@ def create_corr_heat_map(df, title="corr_heat_map"):
     plt.savefig(title + '.png')
 
 
-def neural_net(train_df):
-    # Initialize NN
-    nn_model = tf.keras.Sequential()
+def plot_learning_curve(estimator, title, X, y, ylim=None, cv=5,
+                        n_jobs=None, train_sizes=np.linspace(.1, 1., 10)):
+    """
+    Function retrieved from:
+    https://scikit-learn.org/stable/auto_examples/model_selection/plot_learning_curve.html
+    #sphx-glr-auto-examples-model-selection-plot-learning-curve-py
+    """
+    plt.figure()
+    plt.title(title)
+    if ylim is not None:
+        plt.ylim(*ylim)
+    plt.xlabel("Training examples")
+    plt.ylabel("Score")
+    train_sizes, train_scores, test_scores = learning_curve(
+        estimator, X, y, cv=cv, n_jobs=n_jobs, train_sizes=train_sizes)
+    train_scores_mean = np.mean(train_scores, axis=1)
+    train_scores_std = np.std(train_scores, axis=1)
+    test_scores_mean = np.mean(test_scores, axis=1)
+    test_scores_std = np.std(test_scores, axis=1)
+    plt.grid()
 
-    # Input Layer
-    nn_model.add(tf.keras.layers.Dense(128, kernel_initializer='normal',
-                                       input_dim=train_df.shape[1],
-                                       activation='relu'))
-    # Hidden Layers
-    nn_model.add(
-        tf.keras.layers.Dense(256, kernel_initializer='normal', activation='relu'))
-    nn_model.add(
-        tf.keras.layers.Dense(256, kernel_initializer='normal', activation='relu'))
-    nn_model.add(
-        tf.keras.layers.Dense(256, kernel_initializer='normal', activation='relu'))
+    plt.fill_between(train_sizes, train_scores_mean - train_scores_std,
+                     train_scores_mean + train_scores_std, alpha=0.1,
+                     color="#f92672")
+    plt.fill_between(train_sizes, test_scores_mean - test_scores_std,
+                     test_scores_mean + test_scores_std, alpha=0.1, color="#007fff")
+    plt.plot(train_sizes, train_scores_mean, 'o-', color="#f92672",
+             label="Training score")
+    plt.plot(train_sizes, test_scores_mean, 'o-', color="#007fff",
+             label="Cross-validation score")
 
-    # Output Layer
-    nn_model.add(
-        tf.keras.layers.Dense(1, kernel_initializer='normal', activation='linear'))
+    plt.legend(loc="best")
+    plt.savefig(title + ".png")
+    plt.close()
 
-    # Compile the network
-    nn_model.compile(loss='mean_absolute_error', optimizer='adam',
-                     metrics=['mean_absolute_error'])
 
-    #nn_model.summary()
+def plot_fit_times(estimator, title, x, y):
+    out = defaultdict(dict)
+    length_x = len(x)
+    split_floats = np.linspace(.1, .9, 9)
+    for split_float in split_floats:
+        x_train, x_test, y_train, y_test = train_test_split(x, y, train_size=split_float)
+        start_time = clock()
+        clf = estimator
+        clf.fit(x_train, y_train)
+        out['train'][split_float] = clock() - start_time
+        start_time = clock()
+        clf.predict(x_test)
+        out['test'][split_float] = clock() - start_time
+    out = pd.DataFrame(out)
+    print(out)
 
-    return nn_model
+    plt.figure()
+    plt.title(title)
+    plt.xlabel("Training examples")
+    plt.ylabel("Time (s)")
+    plt.grid()
+    plt.plot(split_floats * length_x, out['test'], 'o-', color="#c1ffc1",
+             label="Test set")
+    plt.plot(split_floats * length_x, out['train'], 'o-', color="#50d3dc",
+             label="Train set")
+    plt.legend(loc="best")
+    plt.savefig(title + ".png")
+    plt.close()
+
+
+def scale_features(input_df):
+    scaler = StandardScaler()
+    scaler.fit(input_df)
+    scaled_features = scaler.transform(input_df)
+    return pd.DataFrame(scaled_features)
 
 
 def main():
@@ -156,55 +211,41 @@ def main():
     # initial_data_cleaning()
 
     virality_df = pd.read_csv('virality_1he.csv')
-    # train = virality_df[:2400]
-    # test = virality_df[2400:]
-    # train_target = train['Virality'].copy()
-    # test_target = test['Virality'].copy()
-    # train = train.drop('Virality', 1)
-    # test = test.drop('Virality', 1)
-    #
-    # nn = neural_net(train)
-    #
-    # checkpoint_name = 'Weights-{epoch:03d}--{val_loss:.5f}.hdf5'
-    # checkpoint = tf.keras.callbacks.ModelCheckpoint(checkpoint_name, monitor='val_loss',
-    #                                                 verbose=1,
-    #                                                 save_best_only=True, mode='auto')
-    # callbacks_list = [checkpoint]
-    #
-    # nn.fit(train, train_target, epochs=100, batch_size=32, validation_split=0.2,
-    #        callbacks=callbacks_list)
-    #
-    # # Load wights file of the best model :
-    # # weights_file = 'Weights-478--18738.19831.hdf5'  # choose the best checkpoint
-    # # nn.load_weights(weights_file)  # load it
-    # nn.compile(loss='mean_absolute_error', optimizer='adam',
-    #            metrics=['mean_absolute_error'])
-    #
-    # predictions = nn.predict(test)
-    # print(predictions)
-    # sum_squared_errors = pd.DataFrame.sum((predictions ** 2 + test_target[:, 1] ** 2), axis=1)
-    # print(sum_squared_errors)
+    target = virality_df['Virality']
+    virality_df = virality_df.drop('Virality', 1)
+    scaled_virality = scale_features(virality_df)
 
     # Random Forest Regressor
-    train_X, val_X, train_y, val_y = train_test_split(train, target, test_size=0.25,
-                                                      random_state=14)
+    train_X, test_X, train_y, test_y = train_test_split(scaled_virality, target,
+                                                        test_size=0.2,
+                                                        random_state=8)
 
     model = RandomForestRegressor()
     model.fit(train_X, train_y)
 
     # Get the mean absolute error on the validation data
-    predicted_prices = model.predict(val_X)
-    MAE = mean_absolute_error(val_y, predicted_prices)
+    predicted_prices = model.predict(test_X)
+    MAE = mean_absolute_error(test_y, predicted_prices)
     print('Random forest validation MAE = ', MAE)
 
-    # Xgboost Regressor
-    XGBModel = XGBRegressor()
-    XGBModel.fit(train_X, train_y, verbose=False)
+    model = MLPRegressor()
+    model.fit(train_X, train_y)
 
-    # Get the mean absolute error on the validation data :
-    XGBpredictions = XGBModel.predict(val_X)
-    MAE = mean_absolute_error(val_y, XGBpredictions)
-    print('XGBoost validation MAE = ', MAE)
+    # Get the mean absolute error on the validation data
+    predicted_prices = model.predict(test_X)
+    MAE = mean_absolute_error(test_y, predicted_prices)
+    print('Neural Network validation MAE = ', MAE)
+
+    # cross validation with plotting
+    plot_fit_times(RandomForestRegressor(), "Rand Forest Regressor Fit Time",
+                   scaled_virality, target)
+    plot_learning_curve(RandomForestRegressor(),
+                        "Rand Forest Regressor", scaled_virality, target)
+
+    plot_fit_times(MLPRegressor(activation='relu', hidden_layer_sizes=10),
+                   "Neural Network Fit Time", scaled_virality, target)
+    plot_learning_curve(MLPRegressor(activation='relu', hidden_layer_sizes=10),
+                        "Neural Network", scaled_virality, target)
 
 
 if __name__ == '__main__':
