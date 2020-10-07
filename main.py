@@ -208,7 +208,7 @@ def scale_features(input_df):
 
 def main():
     # Data Cleaning: run the first time
-    # initial_data_cleaning()
+    initial_data_cleaning()
 
     virality_df = pd.read_csv('virality_1he.csv')
     target = virality_df['Virality']
